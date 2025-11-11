@@ -106,9 +106,7 @@ class TestConfigCLIParser:
         registry.register_group("model", "small", SimpleConfig)
 
         parser = ConfigCLIParser(SimpleConfig, registry)
-        variant, groups, overrides = parser.parse(
-            ["--config=variant1", "model=small", "--value=42"]
-        )
+        variant, groups, overrides = parser.parse(["--config=variant1", "model=small", "--value=42"])
 
         assert variant == "variant1"
         assert groups == {"model": "small"}

@@ -35,22 +35,22 @@ def train(cfg: TrainConfig) -> None:
     print(f"  Model: {cfg.model.name} ({cfg.model.__class__.__name__})")
     print(f"  Num Classes: {cfg.model.num_classes}")
     if hasattr(cfg.model, "depth"):
-        print(f"  Depth: {cfg.model.depth}")
-        print(f"  Pretrained: {cfg.model.pretrained}")
+        print(f"  Depth: {cfg.model.depth}")  # pyright: ignore[reportAttributeAccessIssue]
+        print(f"  Pretrained: {cfg.model.pretrained}")  # pyright: ignore[reportAttributeAccessIssue]
     elif hasattr(cfg.model, "patch_size"):
-        print(f"  Patch Size: {cfg.model.patch_size}")
-        print(f"  Hidden Dim: {cfg.model.hidden_dim}")
-        print(f"  Num Heads: {cfg.model.num_heads}")
+        print(f"  Patch Size: {cfg.model.patch_size}")  # pyright: ignore[reportAttributeAccessIssue]
+        print(f"  Hidden Dim: {cfg.model.hidden_dim}")  # pyright: ignore[reportAttributeAccessIssue]
+        print(f"  Num Heads: {cfg.model.num_heads}")  # pyright: ignore[reportAttributeAccessIssue]
     elif hasattr(cfg.model, "width_coefficient"):
-        print(f"  Width Coefficient: {cfg.model.width_coefficient}")
-        print(f"  Depth Coefficient: {cfg.model.depth_coefficient}")
-        print(f"  Dropout Rate: {cfg.model.dropout_rate}")
+        print(f"  Width Coefficient: {cfg.model.width_coefficient}")  # pyright: ignore[reportAttributeAccessIssue]
+        print(f"  Depth Coefficient: {cfg.model.depth_coefficient}")  # pyright: ignore[reportAttributeAccessIssue]
+        print(f"  Dropout Rate: {cfg.model.dropout_rate}")  # pyright: ignore[reportAttributeAccessIssue]
     print()
     print("Dataset Configuration:")
     print(f"  Dataset: {cfg.dataset.name} ({cfg.dataset.__class__.__name__})")
     print(f"  Batch Size: {cfg.dataset.batch_size}")
     if hasattr(cfg.dataset, "num_workers"):
-        print(f"  Num Workers: {cfg.dataset.num_workers}")
+        print(f"  Num Workers: {cfg.dataset.num_workers}")  # pyright: ignore[reportAttributeAccessIssue]
     print()
     print("Config Source Explanation:")
     print("  - Base config loaded from: shared_configs/base.py")

@@ -110,11 +110,11 @@ class ConfigCLIParser:
         if field_type in (int, float, str, bool):
             if field_type is bool:
                 # For bool, we need special handling
-                return self._bool_type
+                return self._bool_type  # pyright: ignore[reportReturnType]
             return field_type
 
         # For complex types (list, dict, etc.), parse as JSON
-        return self._json_type
+        return self._json_type  # pyright: ignore[reportReturnType]
 
     def _bool_type(self, value: str) -> bool:
         """Parse boolean from string.

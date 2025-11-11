@@ -1,5 +1,6 @@
 """Configuration registry for discovering and managing config classes."""
 
+import importlib
 import importlib.util
 import inspect
 import sys
@@ -145,6 +146,16 @@ class ConfigRegistry:
         Returns:
             Imported module or None if import fails
         """
+        # Try to import module via the canonical Python module name so that
+        # discovered classes match existing imports (avoids duplicate types).
+        module_name = self._derive_module_name(py_file)
+        if module_name:
+            try:
+                return importlib.import_module(module_name)
+            except ModuleNotFoundError:
+                # Fall back to loading from file path when module import fails
+                pass
+
         try:
             # Create unique module name based on file path
             module_name = f"pydraconf_config_{py_file.stem}_{id(py_file)}"
@@ -160,6 +171,37 @@ class ConfigRegistry:
         except Exception:
             # Silently skip files that fail to import
             return None
+
+    def _derive_module_name(self, py_file: Path) -> str | None:
+        """Attempt to derive the canonical module path for a Python file."""
+        try:
+            file_path = py_file.resolve()
+        except OSError:
+            return None
+
+        best_candidate: tuple[str, int] | None = None
+        for entry in sys.path:
+            entry_path = Path(entry or ".")
+            try:
+                entry_resolved = entry_path.resolve()
+            except OSError:
+                continue
+
+            try:
+                relative = file_path.relative_to(entry_resolved)
+            except ValueError:
+                continue
+
+            parts = relative.with_suffix("").parts
+            if not parts or not all(part.isidentifier() for part in parts):
+                continue
+
+            candidate = ".".join(parts)
+            depth = len(parts)
+            if best_candidate is None or depth > best_candidate[1]:
+                best_candidate = (candidate, depth)
+
+        return best_candidate[0] if best_candidate else None
 
     def _is_config_class(self, obj: Any) -> bool:
         """Check if object is a valid config class.

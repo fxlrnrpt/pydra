@@ -196,7 +196,7 @@ def provide_config(
             config = _build_config(final_cls, registry, group_selections, field_overrides)
 
             # 5. Call user function
-            return func(config)
+            return func(config)  # pyright: ignore[reportArgumentType]
 
         return wrapper
 

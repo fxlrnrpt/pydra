@@ -1,6 +1,7 @@
 """Integration tests for end-to-end config building."""
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 from pydantic import BaseModel, Field
@@ -8,6 +9,7 @@ from pydantic import BaseModel, Field
 from pydraconf.cli import ConfigCLIParser
 from pydraconf.decorators import _build_config
 from pydraconf.registry import ConfigRegistry
+from tests.test_registry import SmallModelConfig
 
 
 class ModelConfig(BaseModel):
@@ -75,6 +77,7 @@ class TestIntegration:
         assert isinstance(config, TrainConfig)
         # Model should be swapped to SmallModelConfig
         assert config.model.__class__.__name__ == "SmallModelConfig"
+        assert isinstance(config.model, SmallModelConfig)
         assert config.model.size == 100
         assert config.model.layers == 2
 
@@ -120,8 +123,8 @@ class TestIntegration:
         # Group: model=small (size=100, layers=2)
         # CLI: epochs=15, model.layers=5
 
-        config = _build_config(
-            QuickTest, registry, {"model": "small"}, {"epochs": 15, "model.layers": 5}
+        config = cast(
+            QuickTest, _build_config(QuickTest, registry, {"model": "small"}, {"epochs": 15, "model.layers": 5})
         )
 
         # epochs from CLI override (highest priority)
@@ -134,7 +137,7 @@ class TestIntegration:
         assert config.model.size == 100
 
         # model.layers from CLI override
-        assert config.model.layers == 5
+        assert config.model.layers == 5  # pyright: ignore[reportAttributeAccessIssue]
 
     def test_multiple_group_swaps(self, registry):
         """Test swapping multiple config groups."""
@@ -146,8 +149,9 @@ class TestIntegration:
         # Register optimizer group
         registry.register_group("optimizer", "sgd", OptimizerConfig)
 
-        config = _build_config(FullConfig, registry, {"model": "small", "optimizer": "sgd"}, {})
+        config = cast(FullConfig, _build_config(FullConfig, registry, {"model": "small", "optimizer": "sgd"}, {}))
 
+        assert isinstance(config.model, SmallModelConfig)
         assert config.model.__class__.__name__ == "SmallModelConfig"
         # Note: OptimizerConfig has no variants in fixtures, so it stays as is
         # In a real scenario with different optimizer configs, this would change
@@ -155,15 +159,13 @@ class TestIntegration:
     def test_end_to_end_with_cli_parser(self, registry):
         """Test complete end-to-end flow with CLI parser."""
         parser = ConfigCLIParser(TrainConfig, registry)
-        variant_name, groups, overrides = parser.parse(
-            ["--epochs=50", "model=small"]
-        )
+        variant_name, groups, overrides = parser.parse(["--epochs=50", "model=small"])
 
         # variant_name should be None (no --config specified)
         assert variant_name is None
 
         # Build config
-        config = _build_config(TrainConfig, registry, groups, overrides)
+        config = cast(TrainConfig, _build_config(TrainConfig, registry, groups, overrides))
 
         assert config.epochs == 50
         assert config.model.__class__.__name__ == "SmallModelConfig"

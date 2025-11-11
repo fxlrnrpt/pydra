@@ -4,8 +4,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from pydraconf.config_loader import find_root_dir, load_config_dirs, substitute_variables
 
 

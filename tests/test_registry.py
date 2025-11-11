@@ -1,11 +1,14 @@
 """Tests for ConfigRegistry."""
 
 from pathlib import Path
+from typing import cast
 
 import pytest
 from pydantic import BaseModel
 
 from pydraconf.registry import ConfigRegistry
+from tests.fixtures.configs.base import ChildConfig
+from tests.fixtures.configs.model.small import SmallModelConfig
 
 
 class TestConfigRegistry:
@@ -53,7 +56,7 @@ class TestConfigRegistry:
         assert issubclass(variant_cls, BaseModel)
 
         # Test instantiation
-        instance = variant_cls()
+        instance = cast(ChildConfig, variant_cls())
         assert instance.value == 20
         assert instance.name == "child"
 
@@ -66,29 +69,29 @@ class TestConfigRegistry:
         assert issubclass(model_cls, BaseModel)
 
         # Test instantiation
-        instance = model_cls()
+        instance = cast(SmallModelConfig, model_cls())
         assert instance.size == 100
         assert instance.layers == 2
 
-    def test_get_nonexistent_variant(self, registry, fixtures_path):
+    def test_get_nonexistent_variant(self, registry: ConfigRegistry, fixtures_path: Path):
         """Test getting non-existent variant raises KeyError."""
         registry.discover(fixtures_path)
         with pytest.raises(KeyError, match="Config variant 'nonexistent' not found"):
             registry.get_variant("nonexistent")
 
-    def test_get_nonexistent_group(self, registry, fixtures_path):
+    def test_get_nonexistent_group(self, registry: ConfigRegistry, fixtures_path: Path):
         """Test getting non-existent group raises KeyError."""
         registry.discover(fixtures_path)
         with pytest.raises(KeyError, match="Config group 'nonexistent' not found"):
             registry.get_group("nonexistent", "small")
 
-    def test_get_nonexistent_config_in_group(self, registry, fixtures_path):
+    def test_get_nonexistent_config_in_group(self, registry: ConfigRegistry, fixtures_path: Path):
         """Test getting non-existent config in existing group raises KeyError."""
         registry.discover(fixtures_path)
         with pytest.raises(KeyError, match="Config 'nonexistent' not found in group 'model'"):
             registry.get_group("model", "nonexistent")
 
-    def test_register_variant_manually(self, registry):
+    def test_register_variant_manually(self, registry: ConfigRegistry):
         """Test manually registering a variant."""
 
         class TestVariant(BaseModel):
