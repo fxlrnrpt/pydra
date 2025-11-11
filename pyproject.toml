@@ -1,7 +1,7 @@
 [project]
 name = "pydraconf"
 version = "0.1.0"
-description = "Python-native hierarchical configuration management with Pydantic"
+description = "Python-native hierarchical configuration management with Pydantic. Like Hydra, but for YAML-haters."
 readme = "README.md"
 authors = [
     { name = "Andrey Goncharov", email = "andrey@faillearnrepeat.net" }

@@ -1,6 +1,6 @@
 # PydraConf
 
-Python-native hierarchical configuration management with Pydantic. Like Hydra, but YAML-haters.
+Python-native hierarchical configuration management with Pydantic. Like Hydra, but for YAML-haters.
 
 ## Features
 
