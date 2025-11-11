@@ -6,11 +6,12 @@ from pathlib import Path
 # Add src to path for development
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from pydraconf import config_main
 from configs.base import AppConfig
 
+from pydraconf import provide_config
 
-@config_main(AppConfig, config_dir="configs")
+
+@provide_config(AppConfig, config_dir="configs")
 def run(cfg: AppConfig) -> None:
     """Run the application with the given config.
 

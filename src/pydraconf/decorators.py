@@ -88,7 +88,7 @@ def _build_config(
     return config_cls.model_construct(**final_dict)
 
 
-def config_main(
+def provide_config(
     config_cls: Type[BaseModel],
     config_dir: str = "configs",
 ) -> Callable[[Callable[[T], Any]], Callable[[], Any]]:
@@ -104,7 +104,7 @@ def config_main(
         Decorated function
 
     Example:
-        @config_main(TrainConfig, config_dir="configs")
+        @provide_config(TrainConfig, config_dir="configs")
         def train(cfg: TrainConfig):
             print(f"Training for {cfg.epochs} epochs")
 

@@ -8,7 +8,7 @@ Supports three override mechanisms:
 
 Example:
     from pydantic import BaseModel
-    from pydraconf import config_main
+    from pydraconf import provide_config
 
     class TrainConfig(BaseModel):
         epochs: int = 100
@@ -16,19 +16,19 @@ Example:
     class QuickTest(TrainConfig):
         epochs: int = 5
 
-    @config_main(TrainConfig, config_dir="configs")
+    @provide_config(TrainConfig, config_dir="configs")
     def train(cfg: TrainConfig):
         print(f"Training for {cfg.epochs} epochs")
 
     # CLI: python train.py --config=quick-test --epochs=10
 """
 
-from .decorators import config_main
+from .decorators import provide_config
 from .registry import ConfigRegistry
 
 __version__ = "0.1.0"
 
 __all__ = [
-    "config_main",
+    "provide_config",
     "ConfigRegistry",
 ]

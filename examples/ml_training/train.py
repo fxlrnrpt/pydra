@@ -6,11 +6,12 @@ from pathlib import Path
 # Add src to path for development
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from pydraconf import config_main
 from configs.base import TrainConfig
 
+from pydraconf import provide_config
 
-@config_main(TrainConfig, config_dir="configs")
+
+@provide_config(TrainConfig, config_dir="configs")
 def train(cfg: TrainConfig) -> None:
     """Run training with the given config.
 

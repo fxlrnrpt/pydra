@@ -63,9 +63,9 @@ def camel_to_kebab(name: str) -> str:
         "ml-training-config"
     """
     # Insert hyphen before uppercase letters (except at start)
-    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1-\2', name)
+    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1-\2", name)
     # Insert hyphen before uppercase followed by lowercase
-    s2 = re.sub('([a-z0-9])([A-Z])', r'\1-\2', s1)
+    s2 = re.sub("([a-z0-9])([A-Z])", r"\1-\2", s1)
     return s2.lower()
 
 

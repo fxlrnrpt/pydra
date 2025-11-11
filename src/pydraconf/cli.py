@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from .registry import ConfigRegistry
-from .utils import kebab_to_snake
 
 
 class ConfigCLIParser:
@@ -51,9 +50,7 @@ class ConfigCLIParser:
         # Add --help-groups to show available groups
         groups = self.registry.list_groups()
         if groups:
-            group_help = "\n".join(
-                f"  {group}: {', '.join(configs)}" for group, configs in groups.items()
-            )
+            group_help = "\n".join(f"  {group}: {', '.join(configs)}" for group, configs in groups.items())
             self.parser.add_argument(
                 "--help-groups",
                 action="store_true",
@@ -173,6 +170,7 @@ class ConfigCLIParser:
 
         if args is None:
             import sys
+
             args = sys.argv[1:]
 
         i = 0
@@ -195,6 +193,7 @@ class ConfigCLIParser:
             for group, configs in groups.items():
                 print(f"  {group}: {', '.join(configs)}")
             import sys
+
             sys.exit(0)
 
         # Extract config variant

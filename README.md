@@ -14,7 +14,7 @@ Benefits:
 - Pure Python - no YAML, no magic strings
 - Type-safe with Pydantic validation
 - IDE autocomplete and refactoring support
-- Simple `@config_main` decorator
+- Simple `@provide_config` decorator
 - Convention-over-configuration design
 
 ## Installation
@@ -27,7 +27,7 @@ pip install pydraconf
 
 ```python
 from pydantic import BaseModel
-from pydraconf import config_main
+from pydraconf import provide_config
 
 class TrainConfig(BaseModel):
     epochs: int = 100
@@ -36,7 +36,7 @@ class TrainConfig(BaseModel):
 class QuickTest(TrainConfig):
     epochs: int = 5
 
-@config_main(TrainConfig, config_dir="configs")
+@provide_config(TrainConfig, config_dir="configs")
 def train(cfg: TrainConfig):
     print(f"Training for {cfg.epochs} epochs")
 
@@ -161,12 +161,12 @@ See the [`examples/`](examples/) directory:
 
 ## API Reference
 
-### `@config_main`
+### `@provide_config`
 
 Decorator to make a function config-driven.
 
 ```python
-@config_main(
+@provide_config(
     config_cls: Type[BaseModel],  # Base config class
     config_dir: str = "configs"    # Directory to scan for configs
 )

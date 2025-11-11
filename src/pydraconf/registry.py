@@ -170,11 +170,7 @@ class ConfigRegistry:
         Returns:
             True if obj is a BaseModel subclass (but not BaseModel itself)
         """
-        return (
-            inspect.isclass(obj)
-            and issubclass(obj, BaseModel)
-            and obj is not BaseModel
-        )
+        return inspect.isclass(obj) and issubclass(obj, BaseModel) and obj is not BaseModel
 
     def _is_variant(self, cls: Type[BaseModel]) -> bool:
         """Check if config class is a variant (subclasses another config).
