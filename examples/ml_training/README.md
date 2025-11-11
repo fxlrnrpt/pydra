@@ -6,6 +6,8 @@ This example demonstrates all three override mechanisms in PydraConf:
 2. **Config Groups** - Component swapping (model=vit, optimizer=adam)
 3. **CLI Overrides** - Runtime tweaks (--epochs, --batch-size)
 
+This example uses `.pydraconfrc` to specify the config directory, so the decorator doesn't need a `config_dir` argument.
+
 ## Usage
 
 ### Basic training with config groups

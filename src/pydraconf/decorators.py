@@ -7,6 +7,7 @@ from typing import Any, Callable, Type, TypeVar
 from pydantic import BaseModel
 
 from .cli import ConfigCLIParser
+from .config_loader import find_root_dir, load_config_dirs, substitute_variables
 from .registry import ConfigRegistry
 from .utils import set_nested_value
 
@@ -90,7 +91,7 @@ def _build_config(
 
 def provide_config(
     config_cls: Type[BaseModel],
-    config_dir: str = "configs",
+    config_dirs: str | list[str] | None = None,
 ) -> Callable[[Callable[[T], Any]], Callable[[], Any]]:
     """Decorator to make a function config-driven.
 
@@ -98,13 +99,34 @@ def provide_config(
 
     Args:
         config_cls: Base config class
-        config_dir: Directory to scan for configs (relative to caller)
+        config_dirs: Directory or list of directories to scan for configs.
+                    If None, will search for config_dirs in:
+                    1. .pydraconfrc (JSON) in current/parent directories
+                    2. pyproject.toml [tool.pydraconf] section
+                    3. Defaults to ["$CWD/configs", "$ROOT/configs", "configs"]
+
+                    Supports variable substitution:
+                    - $CWD: Current working directory
+                    - $ROOT: Project root (dir with pyproject.toml or .pydraconfrc)
+
+                    Relative paths (without variables) are treated as relative to the script.
 
     Returns:
         Decorated function
 
     Example:
-        @provide_config(TrainConfig, config_dir="configs")
+        # With explicit config_dirs
+        @provide_config(TrainConfig, config_dirs="configs")
+        def train(cfg: TrainConfig):
+            print(f"Training for {cfg.epochs} epochs")
+
+        # With multiple directories
+        @provide_config(TrainConfig, config_dirs=["$CWD/configs", "configs"])
+        def train(cfg: TrainConfig):
+            print(f"Training for {cfg.epochs} epochs")
+
+        # Using config file (.pydraconfrc or pyproject.toml)
+        @provide_config(TrainConfig)
         def train(cfg: TrainConfig):
             print(f"Training for {cfg.epochs} epochs")
 
@@ -115,21 +137,53 @@ def provide_config(
     def decorator(func: Callable[[T], Any]) -> Callable[[], Any]:
         @wraps(func)
         def wrapper() -> Any:
-            # 1. Discover configs
+            # Get the directory of the calling script
+            import inspect
+            import os
+
+            frame = inspect.stack()[1]
+            script_dir = Path(os.path.dirname(os.path.abspath(frame.filename)))
+            cwd = Path.cwd()
+
+            # Find project root
+            root = find_root_dir(cwd)
+
+            # Determine config directories
+            resolved_config_dirs: list[str]
+            if config_dirs is not None:
+                # Explicit config_dirs provided
+                if isinstance(config_dirs, str):
+                    resolved_config_dirs = [config_dirs]
+                else:
+                    resolved_config_dirs = list(config_dirs)
+            else:
+                # Try to load from config files
+                loaded_dirs = load_config_dirs(cwd)
+                if loaded_dirs:
+                    resolved_config_dirs = loaded_dirs
+                else:
+                    # Default: try CWD first, then ROOT, then relative to script
+                    resolved_config_dirs = ["$CWD/configs", "$ROOT/configs", "configs"]
+
+            # Substitute variables and resolve paths
+            resolved_paths: list[Path] = []
+            for dir_str in resolved_config_dirs:
+                # Substitute variables
+                substituted = substitute_variables(dir_str, cwd, root)
+                path = Path(substituted)
+
+                # Make path absolute if relative (relative paths are relative to script)
+                if not path.is_absolute():
+                    path = script_dir / path
+
+                resolved_paths.append(path)
+
+            # 1. Discover configs from all directories (first directory has priority)
             registry = ConfigRegistry()
-            config_path = Path(config_dir)
-
-            # Make path absolute if relative
-            if not config_path.is_absolute():
-                # Get the directory of the calling script
-                import inspect
-                import os
-
-                frame = inspect.stack()[1]
-                caller_dir = os.path.dirname(os.path.abspath(frame.filename))
-                config_path = Path(caller_dir) / config_path
-
-            registry.discover(config_path)
+            for config_path in resolved_paths:
+                if config_path.exists():
+                    registry.discover(config_path)
+                    break  # Use first existing directory
 
             # 2. Parse CLI
             parser = ConfigCLIParser(config_cls, registry)

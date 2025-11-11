@@ -11,7 +11,7 @@ from configs.base import AppConfig
 from pydraconf import provide_config
 
 
-@provide_config(AppConfig, config_dir="configs")
+@provide_config(AppConfig)  # config_dir read from pyproject.toml
 def run(cfg: AppConfig) -> None:
     """Run the application with the given config.
 

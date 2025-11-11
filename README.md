@@ -25,6 +25,8 @@ pip install pydraconf
 
 ## Quick Start
 
+Create a simple config and use the decorator:
+
 ```python
 from pydantic import BaseModel
 from pydraconf import provide_config
@@ -36,7 +38,7 @@ class TrainConfig(BaseModel):
 class QuickTest(TrainConfig):
     epochs: int = 5
 
-@provide_config(TrainConfig, config_dir="configs")
+@provide_config(TrainConfig)
 def train(cfg: TrainConfig):
     print(f"Training for {cfg.epochs} epochs")
 
@@ -152,6 +154,94 @@ Results in:
 - `model=ViT(...)` (config group selection)
 - Other fields from QuickTest variant defaults
 
+## Configuration Directory
+
+By default, PydraConf looks for configs in multiple locations with priority. You have three options to customize this:
+
+### Option 1: Use the default
+
+Just create a `configs/` directory in one of the default locations. No configuration needed:
+
+```
+my_project/
+├── train.py
+└── configs/
+    ├── base.py
+    └── model/
+        ├── resnet.py
+        └── vit.py
+```
+
+```python
+@provide_config(TrainConfig)  # Searches default locations
+def train(cfg):
+    ...
+```
+
+By default, PydraConf searches in this order:
+1. `$CWD/configs` - Current working directory
+2. `$ROOT/configs` - Project root (directory with `pyproject.toml` or `.pydraconfrc`)
+3. `configs` - Relative to the script directory
+
+The first existing directory wins.
+
+### Option 2: Config files (recommended for projects)
+
+Create a `.pydraconfrc` (JSON) or add to `pyproject.toml`:
+
+**.pydraconfrc:**
+```json
+{
+  "config_dirs": ["$ROOT/shared_configs", "$CWD/configs"]
+}
+```
+
+**pyproject.toml:**
+```toml
+[tool.pydraconf]
+config_dirs = ["$ROOT/shared_configs", "$CWD/configs"]
+```
+
+Then use the decorator without arguments:
+
+```python
+@provide_config(TrainConfig)  # Reads from config file
+def train(cfg):
+    ...
+```
+
+Config files are searched in current and parent directories, making this great for monorepos.
+
+**Variable substitution:**
+- `$CWD` - Current working directory
+- `$ROOT` - Project root (directory with `pyproject.toml` or `.pydraconfrc`)
+
+**Path resolution:**
+- Relative paths (without variables) are resolved relative to the script directory
+- Example: `"configs"` resolves to `{script_dir}/configs`
+
+### Option 3: Explicit argument
+
+Pass `config_dirs` directly to the decorator (single or multiple directories):
+
+```python
+# Single directory (relative to script)
+@provide_config(TrainConfig, config_dirs="my_configs")
+def train(cfg):
+    ...
+
+# Multiple directories with priority
+@provide_config(TrainConfig, config_dirs=["$CWD/configs", "$ROOT/shared_configs"])
+def train(cfg):
+    ...
+```
+
+**Resolution priority:**
+1. Explicit `config_dirs` argument (if provided)
+2. `.pydraconfrc` in current/parent directories
+3. `[tool.pydraconf]` in `pyproject.toml`
+4. Default to `["$CWD/configs", "$ROOT/configs", "configs"]`
+
 ## Examples
 
 See the [`examples/`](examples/) directory:
@@ -167,18 +257,50 @@ Decorator to make a function config-driven.
 
 ```python
 @provide_config(
-    config_cls: Type[BaseModel],  # Base config class
-    config_dir: str = "configs"    # Directory to scan for configs
+    config_cls: Type[BaseModel],                 # Base config class
+    config_dirs: str | list[str] | None = None   # Directory or directories to scan
 )
 def my_function(cfg: ConfigClass):
     ...
 ```
 
-The decorator:
-1. Discovers all configs in `config_dir`
-2. Parses CLI arguments
-3. Builds the final config with all overrides applied
-4. Calls your function with the configured instance
+**Arguments:**
+- `config_cls`: Base configuration class (Pydantic BaseModel)
+- `config_dirs`: Directory or list of directories containing config files. If `None`, searches for:
+  1. `.pydraconfrc` (JSON) in current/parent directories
+  2. `[tool.pydraconf]` section in `pyproject.toml`
+  3. Defaults to `["$CWD/configs", "$ROOT/configs", "configs"]` if not found
+
+  When multiple directories are provided, the first existing directory is used.
+
+  Supports variable substitution:
+  - `$CWD` - Current working directory
+  - `$ROOT` - Project root (directory with `pyproject.toml` or `.pydraconfrc`)
+
+  Relative paths (without variables) are resolved relative to the script directory.
+
+**The decorator:**
+1. Resolves `config_dirs` from config files or arguments
+2. Substitutes variables and resolves paths
+3. Discovers all configs in the first existing directory
+4. Parses CLI arguments
+5. Builds the final config with all overrides applied
+6. Calls your function with the configured instance
+
+**Config File Format:**
+
+`.pydraconfrc` (JSON):
+```json
+{
+  "config_dirs": ["$CWD/configs", "$ROOT/shared_configs", "configs"]
+}
+```
+
+`pyproject.toml`:
+```toml
+[tool.pydraconf]
+config_dirs = ["$CWD/configs", "$ROOT/shared_configs", "configs"]
+```
 
 ### `ConfigRegistry`
 

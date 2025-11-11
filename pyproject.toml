@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.9"
 dependencies = [
     "pydantic>=2.0",
+    "tomli>=1.0.0 ; python_full_version < '3.11'",
 ]
 
 [project.optional-dependencies]

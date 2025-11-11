@@ -5,6 +5,8 @@ This example demonstrates the three override mechanisms in PydraConf:
 1. **Subclassing** - Named variants (DevConfig, ProdConfig)
 2. **CLI Overrides** - Runtime tweaks (--port, --debug)
 
+This example uses `pyproject.toml` to specify the config directory, so the decorator doesn't need a `config_dir` argument.
+
 ## Usage
 
 ### Default configuration
