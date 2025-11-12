@@ -35,7 +35,7 @@ def train_model(cfg: TrainConfig) -> None:
     print("=" * 60)
     print(f"Starting training with {cfg.__class__.__name__}")
     print("=" * 60)
-    print(f"Configuration:")
+    print("Configuration:")
     print(f"  Epochs:        {cfg.epochs}")
     print(f"  Batch size:    {cfg.batch_size}")
     print(f"  Learning rate: {cfg.learning_rate}")
