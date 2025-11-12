@@ -61,6 +61,8 @@ Create a simple config and use the decorator:
 ```python
 from pydraconf import PydraConfig, with_config
 
+# Use `PydraConfig` instead of Pydantic's `BaseModel` for your main configuration classes
+# to get automatic override tracking and metadata features.
 class TrainConfig(PydraConfig):
     epochs: int = 100
     batch_size: int = 32
@@ -68,6 +70,7 @@ class TrainConfig(PydraConfig):
 class QuickTest(TrainConfig):
     epochs: int = 5
 
+# The decorator automatically infers the config class from the function's type annotation.
 @with_config()
 def train(cfg: TrainConfig):
     # Prints applied configuration and overrides
@@ -81,10 +84,6 @@ def train(cfg: TrainConfig):
 if __name__ == "__main__":
     train()
 ```
-
-The decorator automatically infers the config class from the function's type annotation.
-
-**Note:** Use `PydraConfig` instead of Pydantic's `BaseModel` for your main configuration classes to get automatic override tracking and metadata features.
 
 Run with different configurations:
 
