@@ -17,6 +17,9 @@ Three **powerful override mechanisms** work together 🍻:
 2. **Groups** - Component swapping via type inheritance (e.g., `model=ViTConfig`)
 3. **CLI Overrides** - Runtime field tweaks (e.g., `--epochs=50`)
 
+<details>
+<summary>Table of contents</summary>
+
 - [PydraConf](#pydraconf)
   - [Installation](#installation)
   - [Quick Start](#quick-start)
@@ -41,6 +44,9 @@ Three **powerful override mechanisms** work together 🍻:
   - [License](#license)
   - [Contributing](#contributing)
   - [Credits](#credits)
+
+</details>
+
 
 ## Installation
 
