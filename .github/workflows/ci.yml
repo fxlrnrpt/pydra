@@ -25,11 +25,8 @@ jobs:
       - name: Sync dependencies
         run: uv sync --locked --dev
 
-      - name: Run ruff
-        run: uv run ruff check
-
-      - name: Run basedpyright
-        run: uv run basedpyright
+      - name: Run pre-commit hooks
+        run: uv run pre-commit run --all-files --show-diff-on-failure
 
       - name: Run pytest
         run: uv run pytest
