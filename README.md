@@ -2,14 +2,15 @@
 
 Python-native hierarchical configuration management with Pydantic. Like Hydra, but for YAML-haters.
 
-Key features:
+**Key features** 🎯:
 - Pure Python - no YAML, no magic strings
 - Type-safe with Pydantic validation
 - IDE autocomplete and refactoring support
 - Simple `@provide_config` decorator
 - Type-driven architecture - groups are defined by class inheritance, not directory structure
+- Built-in override tracking and config metadata
 
-Three powerful override mechanisms work together:
+Three **powerful override mechanisms** work together 🍻:
 
 1. **Variants** - Named configurations through inheritance (e.g., `QuickTest(TrainConfig)`)
 2. **Groups** - Component swapping via type inheritance (e.g., `model=ViTConfig`)
@@ -27,10 +28,9 @@ pip install pydraconf
 Create a simple config and use the decorator:
 
 ```python
-from pydantic import BaseModel
-from pydraconf import provide_config
+from pydraconf import PydraConfig, provide_config
 
-class TrainConfig(BaseModel):
+class TrainConfig(PydraConfig):
     epochs: int = 100
     batch_size: int = 32
 
@@ -39,13 +39,21 @@ class QuickTest(TrainConfig):
 
 @provide_config()
 def train(cfg: TrainConfig):
-    print(f"Training for {cfg.epochs} epochs")
+    # Prints applied configuration and overrides
+    cfg.log_summary()
+
+    # Your training logic here...
+
+    # Export final config with metadata for reproducibility
+    cfg.export_config("config.json")
 
 if __name__ == "__main__":
     train()
 ```
 
 The decorator automatically infers the config class from the function's type annotation.
+
+**Note:** Use `PydraConfig` instead of Pydantic's `BaseModel` for your main configuration classes to get automatic override tracking and metadata features.
 
 Run with different configurations:
 
@@ -78,7 +86,9 @@ def train(cfg: TrainConfig):
 You can specify a default config class by passing `config_cls` to the decorator. This sets the default variant to use when no `--config` CLI flag is provided:
 
 ```python
-class TrainConfig(BaseModel):
+from pydraconf import PydraConfig
+
+class TrainConfig(PydraConfig):
     epochs: int = 100
     batch_size: int = 32
 
@@ -123,7 +133,9 @@ def train_dev(cfg: TrainConfig):
 Create named configuration variants by **subclassing your main config**:
 
 ```python
-class TrainConfig(BaseModel):
+from pydraconf import PydraConfig
+
+class TrainConfig(PydraConfig):
     epochs: int = 100
     batch_size: int = 32
 
@@ -150,6 +162,9 @@ Create swappable components by **defining base types for nested fields**:
 
 ```python
 # base.py
+from pydantic import BaseModel, Field
+from pydraconf import PydraConfig
+
 class ModelConfig(BaseModel):
     """Base type for model configs with sane defaults."""
     hidden_dim: int = 512
@@ -159,7 +174,7 @@ class OptimizerConfig(BaseModel):
     """Base type for optimizer configs with sane defaults."""
     lr: float = 0.001
 
-class TrainConfig(BaseModel):
+class TrainConfig(PydraConfig):
     epochs: int = 100
     model: ModelConfig = Field(default_factory=ModelConfig)
     optimizer: OptimizerConfig = Field(default_factory=OptimizerConfig)
@@ -196,6 +211,7 @@ python train.py model=ViTConfig optimizer=AdamConfig
 ```python
 # configs/base.py
 from pydantic import BaseModel, Field
+from pydraconf import PydraConfig
 
 # Define base types for groups with sane defaults
 class ModelConfig(BaseModel):
@@ -206,7 +222,7 @@ class OptimizerConfig(BaseModel):
     lr: float = 0.001
 
 # Main config
-class TrainConfig(BaseModel):
+class TrainConfig(PydraConfig):
     epochs: int = 100
     model: ModelConfig = Field(default_factory=ModelConfig)
     optimizer: OptimizerConfig = Field(default_factory=OptimizerConfig)
@@ -292,7 +308,7 @@ By default, PydraConf searches in this order:
 2. `$CWD/configs` - Current working directory
 3. `configs` - Relative to the script directory
 
-**Config discovery and shadowing**: PydraConf discovers configs from ALL existing directories. Configs in later directories (rightmost) override configs with the same name from earlier directories. For example, if both `$ROOT/configs` and`$CWD/configs`  have a `model/resnet.py`, the one from `$CWD/configs` (rightmost) wins.
+**Config discovery and shadowing**: PydraConf discovers configs from ALL existing directories. Configs in later directories (rightmost) override configs with the same name from earlier directories. For example, if both `$ROOT/configs` and`$CWD/configs`  have a `ResNetConfigProd`, the one from `$CWD/configs` (rightmost) wins.
 
 ### Option 2: Config files (recommended for projects)
 
@@ -443,6 +459,171 @@ model_cls = registry.get_group("model", "ViTConfig")
 - `discover()` requires the main config class to identify variants and groups
 - **Variants** are direct subclasses of the main config
 - **Groups** are subclasses of nested field types in the main config
+
+### `PydraConfig`
+
+Enhanced configuration base class that extends Pydantic's `BaseModel` with automatic override tracking and metadata capabilities.
+
+**When to use:**
+- Use `PydraConfig` for your main configuration classes (the ones passed to `@provide_config`)
+- Use Pydantic's `BaseModel` for nested config groups (optional, both work)
+
+```python
+from pydraconf import PydraConfig
+from pydantic import BaseModel, Field
+
+# Nested configs can use BaseModel
+class ModelConfig(BaseModel):
+    hidden_dim: int = 512
+
+# Main config should use PydraConfig
+class TrainConfig(PydraConfig):
+    epochs: int = 100
+    model: ModelConfig = Field(default_factory=ModelConfig)
+```
+
+**Methods:**
+
+**`get_metadata() -> dict[str, Any]`**
+
+Get metadata about the configuration and applied overrides.
+
+```python
+metadata = config.get_metadata()
+print(metadata["config_name"])     # "TrainConfig"
+print(metadata["variant_name"])    # "QuickTest" (if variant selected)
+print(metadata["group_selections"]) # {"model": "ViTConfig"}
+print(metadata["field_overrides"])  # {"epochs": 50}
+print(metadata["config_dirs"])      # ["./configs"]
+print(metadata["timestamp"])        # ISO timestamp
+```
+
+**`get_overrides_summary() -> list[str]`**
+
+Get a human-readable list of all applied overrides.
+
+```python
+overrides = config.get_overrides_summary()
+# Returns: ["variant: QuickTest", "model=ViTConfig", "epochs=50"]
+
+for override in overrides:
+    print(f"  - {override}")
+```
+
+**`export_config(filepath: str, *, include_metadata: bool = True, indent: int = 2) -> None`**
+
+Export configuration to a JSON file with optional metadata.
+
+```python
+# Export with metadata (default)
+config.export_config("config.json")
+
+# Export only config values
+config.export_config("config.json", include_metadata=False)
+```
+
+Exported JSON structure (with metadata):
+```json
+{
+  "config": {
+    "epochs": 50,
+    "batch_size": 32,
+    "model": {...}
+  },
+  "metadata": {
+    "config_name": "TrainConfig",
+    "variant_name": "QuickTest",
+    "group_selections": {"model": "ViTConfig"},
+    "field_overrides": {"epochs": 50},
+    "config_dirs": ["./configs"],
+    "timestamp": "2025-01-15T10:30:00.123456"
+  }
+}
+```
+
+**`to_json_with_metadata(*, indent: int = 2) -> str`**
+
+Convert configuration to a JSON string with metadata.
+
+```python
+json_str = config.to_json_with_metadata()
+print(json_str)
+```
+
+**`log_summary(level: str = "INFO") -> None`**
+
+Log a summary of the configuration and applied overrides.
+
+```python
+# Configure logging once at startup
+from pydraconf import configure_logging
+configure_logging(level="INFO")
+
+# Log summary (outputs to stdout by default)
+config.log_summary()
+```
+
+Output:
+```
+INFO - pydraconf - Configuration: TrainConfig
+INFO - pydraconf - Variant: QuickTest
+INFO - pydraconf - Applied Overrides:
+INFO - pydraconf -   - variant: QuickTest
+INFO - pydraconf -   - model=ViTConfig
+INFO - pydraconf -   - epochs=50
+```
+
+### `configure_logging`
+
+Configure global logging for PydraConf.
+
+```python
+from pydraconf import configure_logging
+import logging
+
+# Basic setup - log to stdout (default)
+configure_logging(level="DEBUG")
+
+# Single handler with default format
+file_handler = logging.FileHandler("config.log")
+configure_logging(level="INFO", handlers=file_handler)
+
+# Multiple handlers with different formats
+file_handler = logging.FileHandler("config.log")
+console_handler = logging.StreamHandler()
+configure_logging(
+    level="INFO",
+    handlers=[
+        (file_handler, "%(asctime)s - %(levelname)s - %(message)s"),
+        (console_handler, "%(levelname)s - %(message)s"),
+    ]
+)
+
+# Multiple handlers with same custom format
+configure_logging(
+    level="INFO",
+    handlers=[
+        (file_handler, "%(asctime)s - %(levelname)s - %(message)s"),
+        (console_handler, "%(asctime)s - %(levelname)s - %(message)s"),
+    ]
+)
+
+# Mix of default and custom formats
+configure_logging(
+    level="INFO",
+    handlers=[
+        (file_handler, None),  # Uses default format
+        (console_handler, "%(levelname)s - %(message)s"),  # Custom format
+    ]
+)
+```
+
+**Arguments:**
+- `level`: Log level ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+- `handlers`: Can be:
+  - `None`: Uses default StreamHandler to stdout with default format
+  - Single handler: Uses provided handler with default format
+  - List of `(handler, format)` tuples: Each handler uses its own format (use `None` for default)
 
 ## Development
 

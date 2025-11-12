@@ -9,21 +9,23 @@ from typing import Any, Type
 
 from pydantic import BaseModel
 
+from .base_config import PydraConfig
+
 
 class ConfigRegistry:
     """Registry for configuration classes and variants.
 
     Manages two types of configs:
     1. Groups: Configs organized in subdirectories, identified by class name (e.g., configs/model/resnet.py with ResNet50Config class)
-    2. Variants: Named config subclasses (e.g., class QuickTest(BaseConfig))
+    2. Variants: Named config subclasses (e.g., class QuickTest(PydraConfig))
     """
 
     def __init__(self) -> None:
         """Initialize empty registry."""
         self._groups: dict[str, dict[str, Type[BaseModel]]] = {}
-        self._variants: dict[str, Type[BaseModel]] = {}
+        self._variants: dict[str, Type[PydraConfig]] = {}
 
-    def discover(self, root_dir: Path, main_config_cls: Type[BaseModel]) -> None:
+    def discover(self, root_dir: Path, main_config_cls: Type[PydraConfig]) -> None:
         """Discover and register configs from directory.
 
         Discovery rules:
@@ -76,7 +78,7 @@ class ConfigRegistry:
             self._groups[group] = {}
         self._groups[group][name] = cls
 
-    def register_variant(self, name: str, cls: Type[BaseModel]) -> None:
+    def register_variant(self, name: str, cls: Type[PydraConfig]) -> None:
         """Register a named config variant.
 
         Args:
@@ -105,7 +107,7 @@ class ConfigRegistry:
             raise KeyError(f"Config '{name}' not found in group '{group}'. Available: {available}")
         return self._groups[group][name]
 
-    def get_variant(self, name: str) -> Type[BaseModel]:
+    def get_variant(self, name: str) -> Type[PydraConfig]:
         """Get a named config variant.
 
         Args:

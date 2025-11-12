@@ -8,6 +8,7 @@ from typing import Any, Type, get_args, get_origin
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
+from .base_config import PydraConfig
 from .registry import ConfigRegistry
 
 
@@ -20,7 +21,7 @@ class ConfigCLIParser:
     3. --field.nested=value (override specific fields using exact field names)
     """
 
-    def __init__(self, config_cls: Type[BaseModel], registry: ConfigRegistry) -> None:
+    def __init__(self, config_cls: Type[PydraConfig], registry: ConfigRegistry) -> None:
         """Initialize parser.
 
         Args:
@@ -64,7 +65,7 @@ class ConfigCLIParser:
         """Recursively add arguments for model fields.
 
         Args:
-            model: Pydantic model to extract fields from
+            model: PydraConfig to extract fields from
             prefix: Prefix for nested fields (e.g., "model.")
         """
         for field_name, field_info in model.model_fields.items():

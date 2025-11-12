@@ -2,8 +2,11 @@
 
 from pydantic import BaseModel, Field
 
+from pydraconf import PydraConfig
+
 
 # Base config types for groups (with sane defaults)
+# These can still use BaseModel since they're nested configs
 class ModelConfig(BaseModel):
     """Base model config type."""
 
@@ -17,7 +20,8 @@ class OptimizerConfig(BaseModel):
     lr: float = Field(default=0.001, description="Learning rate")
 
 
-class TrainConfig(BaseModel):
+# Main config uses PydraConfig for metadata tracking
+class TrainConfig(PydraConfig):
     """Main training configuration."""
 
     epochs: int = Field(default=100, description="Number of training epochs")

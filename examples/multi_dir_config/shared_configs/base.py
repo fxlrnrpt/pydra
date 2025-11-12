@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, Field
 
+from pydraconf import PydraConfig
+
 
 class ModelConfig(BaseModel):
     """Model configuration."""
@@ -17,7 +19,7 @@ class DatasetConfig(BaseModel):
     batch_size: int = Field(default=32, description="Batch size")
 
 
-class TrainConfig(BaseModel):
+class TrainConfig(PydraConfig):
     """Shared training configuration."""
 
     epochs: int = Field(default=100, description="Number of epochs")

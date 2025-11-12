@@ -3,170 +3,87 @@
 from pathlib import Path
 from typing import cast
 
-import pytest
-from pydantic import BaseModel, Field
-
 from pydraconf.cli import ConfigCLIParser
 from pydraconf.decorators import _build_config
 from pydraconf.registry import ConfigRegistry
-from tests.fixtures.configs.base import BaseConfig
+from tests.fixtures.configs.base import BaseModelConfig, BaseTestConfig, ChildConfig
 from tests.fixtures.configs.model.small import SmallModelConfig
 
 
-class ModelConfig(BaseModel):
-    """Base model config."""
-
-    size: int = Field(default=100, description="Model size")
+FIXTURES_PATH = Path(__file__).parent / "fixtures" / "configs"
 
 
-class OptimizerConfig(BaseModel):
-    """Base optimizer config."""
+def build_config_with_args(args: list[str]) -> BaseTestConfig:
+    """Helper to build config from CLI args with discovery."""
+    registry = ConfigRegistry()
+    registry.discover(FIXTURES_PATH, BaseTestConfig)
 
-    lr: float = Field(default=0.001, description="Learning rate")
+    parser = ConfigCLIParser(BaseTestConfig, registry)
+    variant_name, groups, overrides = parser.parse(args)
 
+    # Determine final class
+    if variant_name:
+        final_cls = registry.get_variant(variant_name)
+    else:
+        final_cls = BaseTestConfig
 
-class TrainConfig(BaseModel):
-    """Training configuration."""
-
-    epochs: int = Field(default=100, description="Number of epochs")
-    model: ModelConfig = Field(default_factory=ModelConfig, description="Model config")
-    optimizer: OptimizerConfig = Field(default_factory=OptimizerConfig, description="Optimizer config")
-
-
-class QuickTest(TrainConfig):
-    """Quick test variant."""
-
-    epochs: int = 5
+    return _build_config(final_cls, registry, groups, overrides, variant_name, [str(FIXTURES_PATH)])  # type: ignore[return-value]
 
 
 class TestIntegration:
-    """Integration tests for full config building pipeline."""
+    """Integration tests for full config building pipeline.
 
-    @pytest.fixture
-    def fixtures_path(self):
-        """Path to test fixtures."""
-        return Path(__file__).parent / "fixtures" / "configs"
+    These tests verify the complete pipeline: discovery -> parsing -> building -> applying overrides.
+    Unit tests for individual components (CLI parser, registry, etc.) are in separate test files.
+    """
 
-    @pytest.fixture
-    def registry(self, fixtures_path):
-        """Create and populate registry."""
-        reg = ConfigRegistry()
-        reg.discover(fixtures_path, BaseConfig)
-        return reg
+    def test_base_config_only(self):
+        """Test building config with no overrides - baseline behavior."""
+        config = build_config_with_args([])
 
-    def test_base_config_only(self, registry):
-        """Test building config with no overrides."""
-        config = _build_config(TrainConfig, registry, {}, {})
-
-        assert isinstance(config, TrainConfig)
-        assert config.epochs == 100
-        assert isinstance(config.model, ModelConfig)
+        assert isinstance(config, BaseTestConfig)
+        assert config.value == 10
+        assert isinstance(config.model, BaseModelConfig)
         assert config.model.size == 100
 
-    def test_variant_selection(self, registry):
-        """Test building config with variant selection."""
-        variant_cls = QuickTest
-        config = _build_config(variant_cls, registry, {}, {})
+    def test_override_priority(self):
+        """Test complete override priority system: CLI > groups > variant > base.
 
-        assert isinstance(config, QuickTest)
-        assert config.epochs == 5
+        This comprehensive test validates:
+        - Variant selection (--config=ChildConfig)
+        - Group selection (model=SmallModelConfig)
+        - Field overrides (--value=15)
+        - Nested field overrides (--model.layers=5)
+        - Correct priority order
 
-    def test_group_selection(self, registry):
-        """Test building config with group selection."""
-        config = _build_config(TrainConfig, registry, {"model": "SmallModelConfig"}, {})
+        Priority breakdown:
+        - Base: value=10, model.size=100, model.layers=2
+        - Variant (ChildConfig): value=20
+        - Group (SmallModelConfig): model.size=50, model.layers=1
+        - CLI: value=15, model.layers=5
 
-        assert isinstance(config, TrainConfig)
-        # Model should be swapped to SmallModelConfig
-        assert config.model.__class__.__name__ == "SmallModelConfig"
-        assert isinstance(config.model, SmallModelConfig)
-        assert config.model.size == 50  # SmallModelConfig overrides base
-        assert config.model.layers == 1
-
-    def test_field_overrides(self, registry):
-        """Test building config with field overrides."""
-        config = _build_config(TrainConfig, registry, {}, {"epochs": 50})
-
-        assert isinstance(config, TrainConfig)
-        assert config.epochs == 50
-
-    def test_nested_field_overrides(self, registry):
-        """Test building config with nested field overrides."""
-        config = _build_config(TrainConfig, registry, {}, {"model.size": 500})
-
-        assert isinstance(config, TrainConfig)
-        assert config.model.size == 500
-
-    def test_all_three_override_types(self, registry):
-        """Test building config with variant + groups + overrides."""
-        variant_cls = QuickTest
-        groups = {"model": "LargeModelConfig"}
-        overrides = {"epochs": 10, "model.size": 2000}
-
-        config = _build_config(variant_cls, registry, groups, overrides)
-
-        # Should be QuickTest variant
-        assert isinstance(config, QuickTest)
-
-        # epochs should be overridden (override priority: CLI > group > variant > base)
-        assert config.epochs == 10
-
-        # Model should be LargeModelConfig (group selection)
-        assert config.model.__class__.__name__ == "LargeModelConfig"
-
-        # Model size should be overridden
-        assert config.model.size == 2000
-
-    def test_override_priority(self, registry):
-        """Test correct override priority: CLI > groups > variant > base."""
-
-        # Base: epochs=100
-        # Variant (QuickTest): epochs=5
-        # Group: model=SmallModelConfig (size=50, layers=1)
-        # CLI: epochs=15, model.layers=5
-
+        Expected result:
+        - value=15 (CLI overrides variant)
+        - model.size=50 (from group)
+        - model.layers=5 (CLI overrides group)
+        """
         config = cast(
-            QuickTest, _build_config(QuickTest, registry, {"model": "SmallModelConfig"}, {"epochs": 15, "model.layers": 5})
+            ChildConfig,
+            build_config_with_args(["--config=ChildConfig", "model=SmallModelConfig", "--value=15", "--model.layers=5"]),
         )
 
-        # epochs from CLI override (highest priority)
-        assert config.epochs == 15
+        # Verify correct config type (variant selection)
+        assert isinstance(config, ChildConfig)
 
-        # model from group selection
+        # Verify CLI override has highest priority (overrides variant default of 20)
+        assert config.value == 15
+
+        # Verify group selection works
         assert config.model.__class__.__name__ == "SmallModelConfig"
-
-        # model.size from group default
-        assert config.model.size == 50  # SmallModelConfig overrides base
-
-        # model.layers from CLI override
-        assert config.model.layers == 5  # pyright: ignore[reportAttributeAccessIssue]
-
-    def test_multiple_group_swaps(self, registry):
-        """Test swapping multiple config groups."""
-
-        class FullConfig(BaseModel):
-            model: BaseModel = Field(default_factory=ModelConfig)
-            optimizer: BaseModel = Field(default_factory=OptimizerConfig)
-
-        # Register optimizer group
-        registry.register_group("optimizer", "OptimizerConfig", OptimizerConfig)
-
-        config = cast(FullConfig, _build_config(FullConfig, registry, {"model": "SmallModelConfig", "optimizer": "OptimizerConfig"}, {}))
-
         assert isinstance(config.model, SmallModelConfig)
-        assert config.model.__class__.__name__ == "SmallModelConfig"
-        # Note: OptimizerConfig has no variants in fixtures, so it stays as is
-        # In a real scenario with different optimizer configs, this would change
 
-    def test_end_to_end_with_cli_parser(self, registry):
-        """Test complete end-to-end flow with CLI parser."""
-        parser = ConfigCLIParser(TrainConfig, registry)
-        variant_name, groups, overrides = parser.parse(["--epochs=50", "model=SmallModelConfig"])
+        # Verify group default is used (from SmallModelConfig)
+        assert config.model.size == 50
 
-        # variant_name should be None (no --config specified)
-        assert variant_name is None
-
-        # Build config
-        config = cast(TrainConfig, _build_config(TrainConfig, registry, groups, overrides))
-
-        assert config.epochs == 50
-        assert config.model.__class__.__name__ == "SmallModelConfig"
+        # Verify CLI override has highest priority (overrides group default of 1)
+        assert config.model.layers == 5  # pyright: ignore[reportAttributeAccessIssue]

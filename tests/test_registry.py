@@ -6,8 +6,9 @@ from typing import cast
 import pytest
 from pydantic import BaseModel
 
+from pydraconf.base_config import PydraConfig
 from pydraconf.registry import ConfigRegistry
-from tests.fixtures.configs.base import BaseConfig, ChildConfig, ComplexConfig
+from tests.fixtures.configs.base import BaseTestConfig, ChildConfig, ComplexConfig
 from tests.fixtures.configs.model.small import SmallModelConfig
 
 
@@ -31,13 +32,13 @@ class TestConfigRegistry:
 
     def test_discover_variants(self, registry, fixtures_path):
         """Test discovering variant configs (subclasses of main config)."""
-        # BaseConfig is the main config - should find its direct subclasses
-        registry.discover(fixtures_path, BaseConfig)
+        # BaseTestConfig is the main config - should find its direct subclasses
+        registry.discover(fixtures_path, BaseTestConfig)
         variants = registry.list_variants()
 
-        # Should find ChildConfig (direct subclass of BaseConfig)
+        # Should find ChildConfig (direct subclass of BaseTestConfig)
         assert "ChildConfig" in variants
-        # ComplexVariant is a subclass of ComplexConfig, not BaseConfig
+        # ComplexVariant is a subclass of ComplexConfig, not BaseTestConfig
         assert "ComplexVariant" not in variants
 
         # If we use ComplexConfig as main, should find ComplexVariant
@@ -48,9 +49,9 @@ class TestConfigRegistry:
 
     def test_discover_groups(self, registry, fixtures_path):
         """Test discovering config groups (subclasses of nested field types)."""
-        # BaseConfig has a 'model' field of type ModelConfig
+        # BaseTestConfig has a 'model' field of type ModelConfig
         # SmallModelConfig and LargeModelConfig are subclasses of ModelConfig
-        registry.discover(fixtures_path, BaseConfig)
+        registry.discover(fixtures_path, BaseTestConfig)
         groups = registry.list_groups()
 
         assert "model" in groups
@@ -59,7 +60,7 @@ class TestConfigRegistry:
 
     def test_get_variant(self, registry, fixtures_path):
         """Test retrieving a variant config."""
-        registry.discover(fixtures_path, BaseConfig)
+        registry.discover(fixtures_path, BaseTestConfig)
         variant_cls = registry.get_variant("ChildConfig")
 
         assert variant_cls is not None
@@ -72,7 +73,7 @@ class TestConfigRegistry:
 
     def test_get_group(self, registry, fixtures_path):
         """Test retrieving a config from a group."""
-        registry.discover(fixtures_path, BaseConfig)
+        registry.discover(fixtures_path, BaseTestConfig)
         model_cls = registry.get_group("model", "SmallModelConfig")
 
         assert model_cls is not None
@@ -85,26 +86,26 @@ class TestConfigRegistry:
 
     def test_get_nonexistent_variant(self, registry: ConfigRegistry, fixtures_path: Path):
         """Test getting non-existent variant raises KeyError."""
-        registry.discover(fixtures_path, BaseConfig)
+        registry.discover(fixtures_path, BaseTestConfig)
         with pytest.raises(KeyError, match="Config variant 'nonexistent' not found"):
             registry.get_variant("nonexistent")
 
     def test_get_nonexistent_group(self, registry: ConfigRegistry, fixtures_path: Path):
         """Test getting non-existent group raises KeyError."""
-        registry.discover(fixtures_path, BaseConfig)
+        registry.discover(fixtures_path, BaseTestConfig)
         with pytest.raises(KeyError, match="Config group 'nonexistent' not found"):
             registry.get_group("nonexistent", "small")
 
     def test_get_nonexistent_config_in_group(self, registry: ConfigRegistry, fixtures_path: Path):
         """Test getting non-existent config in existing group raises KeyError."""
-        registry.discover(fixtures_path, BaseConfig)
+        registry.discover(fixtures_path, BaseTestConfig)
         with pytest.raises(KeyError, match="Config 'nonexistent' not found in group 'model'"):
             registry.get_group("model", "nonexistent")
 
     def test_register_variant_manually(self, registry: ConfigRegistry):
         """Test manually registering a variant."""
 
-        class TestVariant(BaseModel):
+        class TestVariant(PydraConfig):
             value: int = 42
 
         registry.register_variant("TestVariant", TestVariant)
@@ -130,7 +131,7 @@ class TestConfigRegistry:
 
     def test_discover_nonexistent_directory(self, registry):
         """Test discovering from non-existent directory doesn't crash."""
-        registry.discover(Path("/nonexistent/path"), BaseConfig)
+        registry.discover(Path("/nonexistent/path"), BaseTestConfig)
         assert registry.list_groups() == {}
         assert registry.list_variants() == []
 

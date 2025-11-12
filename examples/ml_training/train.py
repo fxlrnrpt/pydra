@@ -32,11 +32,23 @@ def train(cfg: TrainConfig) -> None:
     print(f"  {cfg.optimizer}")
     print("=" * 70)
     print()
+
+    # Display metadata about applied overrides
+    overrides = cfg.get_overrides_summary()
+    if overrides:
+        print("Applied Overrides:")
+        for override in overrides:
+            print(f"  - {override}")
+        print()
+
     print("Starting training...")
     print(f"  Training {cfg.model.__class__.__name__} for {cfg.epochs} epochs")
     print(f"  Using {cfg.optimizer.__class__.__name__} optimizer")
     print()
     print("(This is a demo - no actual training happens)")
+
+    # Optionally export config with metadata
+    # cfg.export_config("training_config.json")
 
 
 if __name__ == "__main__":

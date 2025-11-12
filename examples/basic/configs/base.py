@@ -1,9 +1,11 @@
 """Base configuration for the basic example."""
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from pydraconf import PydraConfig
 
 
-class AppConfig(BaseModel):
+class AppConfig(PydraConfig):
     """Main application configuration."""
 
     port: int = Field(default=8000, description="Server port")

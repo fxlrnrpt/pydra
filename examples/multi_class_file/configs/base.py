@@ -1,11 +1,13 @@
 """Base training configuration."""
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from pydraconf import PydraConfig
 
 from .model.variants import MediumModel, ModelConfig
 
 
-class TrainConfig(BaseModel):
+class TrainConfig(PydraConfig):
     """Training configuration with model selection."""
 
     epochs: int = Field(default=100, description="Number of training epochs")

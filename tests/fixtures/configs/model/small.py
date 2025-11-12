@@ -2,7 +2,7 @@
 
 from pydantic import Field
 
-from tests.fixtures.configs.model.base import BaseModelConfig
+from tests.fixtures.configs.base import BaseModelConfig
 
 
 class SmallModelConfig(BaseModelConfig):

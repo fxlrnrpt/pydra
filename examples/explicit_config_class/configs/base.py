@@ -1,9 +1,11 @@
 """Configuration for the explicit config class example."""
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from pydraconf import PydraConfig
 
 
-class TrainConfig(BaseModel):
+class TrainConfig(PydraConfig):
     """Main training configuration."""
 
     epochs: int = Field(default=100, description="Number of training epochs")

@@ -3,11 +3,12 @@
 import pytest
 from pydantic import BaseModel, Field
 
+from pydraconf.base_config import PydraConfig
 from pydraconf.cli import ConfigCLIParser
 from pydraconf.registry import ConfigRegistry
 
 
-class SimpleConfig(BaseModel):
+class SimpleConfig(PydraConfig):
     """Simple config for testing."""
 
     value: int = Field(default=10, description="A test value")
@@ -15,13 +16,13 @@ class SimpleConfig(BaseModel):
     enabled: bool = Field(default=False, description="Enable flag")
 
 
-class NestedConfig(BaseModel):
+class NestedConfig(PydraConfig):
     """Nested config for testing."""
 
     inner: int = Field(default=5, description="Inner value")
 
 
-class ConfigWithNested(BaseModel):
+class ConfigWithNested(PydraConfig):
     """Config with nested field."""
 
     top: int = Field(default=100, description="Top value")
@@ -123,7 +124,7 @@ class TestConfigCLIParser:
     def test_underscore_field_names(self, registry):
         """Test that underscored fields use exact field names."""
 
-        class ConfigWithUnderscores(BaseModel):
+        class ConfigWithUnderscores(PydraConfig):
             batch_size: int = 32
             learning_rate: float = 0.001
 

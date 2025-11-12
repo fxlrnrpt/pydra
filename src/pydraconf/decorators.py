@@ -6,20 +6,23 @@ from typing import Any, Callable, Type, TypeVar, get_type_hints
 
 from pydantic import BaseModel
 
+from .base_config import PydraConfig
 from .cli import ConfigCLIParser
 from .config_loader import find_root_dir, load_config_dirs, substitute_variables
 from .registry import ConfigRegistry
 from .utils import set_nested_value
 
-T = TypeVar("T", bound=BaseModel)
+T = TypeVar("T", bound=PydraConfig)
 
 
 def _build_config(
-    config_cls: Type[BaseModel],
+    config_cls: Type[PydraConfig],
     registry: ConfigRegistry,
     group_selections: dict[str, str],
     field_overrides: dict[str, Any],
-) -> BaseModel:
+    variant_name: str | None = None,
+    config_dirs: list[str] | None = None,
+) -> PydraConfig:
     """Build config instance with all overrides applied.
 
     Override priority (from lowest to highest):
@@ -32,6 +35,8 @@ def _build_config(
         registry: Config registry
         group_selections: Component swaps {"model": "vit"}
         field_overrides: Field changes {"epochs": 50, "model.hidden_dim": 1024}
+        variant_name: Name of the variant selected (for metadata)
+        config_dirs: List of config directories (for metadata)
 
     Returns:
         Configured instance with all overrides applied
@@ -74,7 +79,7 @@ def _build_config(
     for group, instance in group_instances.items():
         final_dict[group] = instance
 
-    # For non-swapped nested BaseModel fields, we need to reconstruct them
+    # For non-swapped nested PydraConfig fields, we need to reconstruct them
     # Otherwise they stay as dicts when using model_construct
     for field_name, field_info in config_cls.model_fields.items():
         if field_name not in group_instances and field_name in final_dict:
@@ -86,11 +91,21 @@ def _build_config(
                     final_dict[field_name] = field_type(**final_dict[field_name])
 
     # Use model_construct to bypass field type validation
-    return config_cls.model_construct(**final_dict)
+    config = config_cls.model_construct(**final_dict)
+
+    config.set_metadata(
+        config_name=config_cls.__name__,
+        variant_name=variant_name,
+        group_selections=group_selections,
+        field_overrides=field_overrides,
+        config_dirs=config_dirs or [],
+    )
+
+    return config
 
 
 def provide_config(
-    config_cls: Type[BaseModel] | None = None,
+    config_cls: Type[T] | None = None,
     config_dirs: str | list[str] | None = None,
 ) -> Callable[[Callable[[T], Any]], Callable[[], Any]]:
     """Decorator to make a function config-driven.
@@ -153,16 +168,16 @@ def provide_config(
             raise TypeError(msg)
 
         # Get the first parameter's type
-        first_param_name = next(iter(func.__code__.co_varnames[:func.__code__.co_argcount]))
+        first_param_name = next(iter(func.__code__.co_varnames[: func.__code__.co_argcount]))
         if first_param_name not in type_hints:
             msg = f"First parameter '{first_param_name}' of function '{func.__name__}' must have a type hint"
             raise TypeError(msg)
 
         annotated_config_cls = type_hints[first_param_name]
 
-        # Validate it's a BaseModel subclass
-        if not (isinstance(annotated_config_cls, type) and issubclass(annotated_config_cls, BaseModel)):
-            msg = f"First parameter type of '{func.__name__}' must be a Pydantic BaseModel, got {annotated_config_cls}"
+        # Validate it's a PydraConfig subclass
+        if not (isinstance(annotated_config_cls, type) and issubclass(annotated_config_cls, PydraConfig)):
+            msg = f"First parameter type of '{func.__name__}' must be a Pydraconf's PydraConfig, got {annotated_config_cls}"
             raise TypeError(msg)
 
         # Validate config_cls if provided
@@ -171,6 +186,7 @@ def provide_config(
             if not (isinstance(config_cls, type) and issubclass(config_cls, annotated_config_cls)):
                 msg = f"Provided config_cls '{config_cls.__name__}' must be a subclass of '{annotated_config_cls.__name__}'"
                 raise TypeError(msg)
+
         @wraps(func)
         def wrapper() -> Any:
             # Get the directory of the calling script
@@ -239,7 +255,14 @@ def provide_config(
                 final_cls = annotated_config_cls
 
             # 4. Build config with all overrides
-            config = _build_config(final_cls, registry, group_selections, field_overrides)
+            config = _build_config(
+                final_cls,
+                registry,
+                group_selections,
+                field_overrides,
+                variant_name=variant_name,
+                config_dirs=[str(p) for p in resolved_paths],
+            )
 
             # 5. Call user function
             return func(config)  # pyright: ignore[reportArgumentType]
