@@ -90,6 +90,7 @@ def _build_config(
 
 
 def provide_config(
+    config_cls: Type[BaseModel] | None = None,
     config_dirs: str | list[str] | None = None,
 ) -> Callable[[Callable[[T], Any]], Callable[[], Any]]:
     """Decorator to make a function config-driven.
@@ -98,6 +99,15 @@ def provide_config(
     The config class is inferred from the function's first parameter type annotation.
 
     Args:
+        config_cls: Optional config class to use as the default. If provided, it must be
+                   a subclass of the function's first parameter type annotation.
+
+                   Important: Discovery (variants, groups, CLI fields) is ALWAYS based on
+                   the type annotation, NOT on config_cls. The config_cls only determines
+                   which config to instantiate when no --config flag is provided.
+
+                   Priority: CLI --config flag > config_cls parameter > type annotation
+
         config_dirs: Directory or list of directories to scan for configs.
                     If None, will search for config_dirs in:
                     1. .pydraconfrc (JSON) in current/parent directories
@@ -129,12 +139,14 @@ def provide_config(
         def train(cfg: TrainConfig):
             print(f"Training for {cfg.epochs} epochs")
 
-        # CLI usage:
-        # python train.py --config=quick-test model=vit --model.hidden-dim=1024
+        # With explicit config class (must be subclass of type annotation)
+        @provide_config(config_cls=QuickTestConfig)
+        def train(cfg: TrainConfig):  # QuickTestConfig must be subclass of TrainConfig
+            print(f"Training for {cfg.epochs} epochs")
     """
 
     def decorator(func: Callable[[T], Any]) -> Callable[[], Any]:
-        # Infer config_cls from function's first parameter type hint
+        # Infer default config class from function's first parameter type hint
         type_hints = get_type_hints(func)
         if not type_hints:
             msg = f"Function '{func.__name__}' must have type hints for its first parameter"
@@ -146,12 +158,19 @@ def provide_config(
             msg = f"First parameter '{first_param_name}' of function '{func.__name__}' must have a type hint"
             raise TypeError(msg)
 
-        config_cls = type_hints[first_param_name]
+        annotated_config_cls = type_hints[first_param_name]
 
         # Validate it's a BaseModel subclass
-        if not (isinstance(config_cls, type) and issubclass(config_cls, BaseModel)):
-            msg = f"First parameter type of '{func.__name__}' must be a Pydantic BaseModel, got {config_cls}"
+        if not (isinstance(annotated_config_cls, type) and issubclass(annotated_config_cls, BaseModel)):
+            msg = f"First parameter type of '{func.__name__}' must be a Pydantic BaseModel, got {annotated_config_cls}"
             raise TypeError(msg)
+
+        # Validate config_cls if provided
+        if config_cls is not None:
+            # Validate that provided config_cls is a subclass of the type annotation
+            if not (isinstance(config_cls, type) and issubclass(config_cls, annotated_config_cls)):
+                msg = f"Provided config_cls '{config_cls.__name__}' must be a subclass of '{annotated_config_cls.__name__}'"
+                raise TypeError(msg)
         @wraps(func)
         def wrapper() -> Any:
             # Get the directory of the calling script
@@ -197,17 +216,27 @@ def provide_config(
 
             # 1. Discover configs from all directories
             # Later directories override earlier ones (rightmost has highest priority)
+            # Always use the type annotation for discovery
             registry = ConfigRegistry()
             for config_path in resolved_paths:
                 if config_path.exists():
-                    registry.discover(config_path, config_cls)
+                    registry.discover(config_path, annotated_config_cls)
 
             # 2. Parse CLI
-            parser = ConfigCLIParser(config_cls, registry)
+            parser = ConfigCLIParser(annotated_config_cls, registry)
             variant_name, group_selections, field_overrides = parser.parse()
 
-            # 3. Select config class (variant or base)
-            final_cls = registry.get_variant(variant_name) if variant_name else config_cls
+            # 3. Select config class (variant, explicit config_cls, or base)
+            # Priority: CLI --config flag > explicit config_cls parameter > type annotation
+            if variant_name:
+                # CLI --config flag has highest priority
+                final_cls = registry.get_variant(variant_name)
+            elif config_cls is not None:
+                # Explicit config_cls parameter is second priority
+                final_cls = config_cls
+            else:
+                # Type annotation is default
+                final_cls = annotated_config_cls
 
             # 4. Build config with all overrides
             config = _build_config(final_cls, registry, group_selections, field_overrides)

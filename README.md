@@ -2,7 +2,12 @@
 
 Python-native hierarchical configuration management with Pydantic. Like Hydra, but for YAML-haters.
 
-## Features
+Key features:
+- Pure Python - no YAML, no magic strings
+- Type-safe with Pydantic validation
+- IDE autocomplete and refactoring support
+- Simple `@provide_config` decorator
+- Type-driven architecture - groups are defined by class inheritance, not directory structure
 
 Three powerful override mechanisms work together:
 
@@ -10,12 +15,6 @@ Three powerful override mechanisms work together:
 2. **Groups** - Component swapping via type inheritance (e.g., `model=ViTConfig`)
 3. **CLI Overrides** - Runtime field tweaks (e.g., `--epochs=50`)
 
-Benefits:
-- Pure Python - no YAML, no magic strings
-- Type-safe with Pydantic validation
-- IDE autocomplete and refactoring support
-- Simple `@provide_config` decorator
-- Type-driven architecture - groups are defined by class inheritance, not directory structure
 
 ## Installation
 
@@ -64,9 +63,62 @@ python train.py --epochs=50 --batch_size=64
 python train.py --config=QuickTest --epochs=10
 ```
 
+Or set a different default variant:
+
+```python
+@provide_config(config_cls=QuickTest)
+def train(cfg: TrainConfig):
+    ...
+```
+
 ## How It Works
 
-### 1. Variants - Named Configurations
+### 1. Default config class
+
+You can specify a default config class by passing `config_cls` to the decorator. This sets the default variant to use when no `--config` CLI flag is provided:
+
+```python
+class TrainConfig(BaseModel):
+    epochs: int = 100
+    batch_size: int = 32
+
+class QuickTest(TrainConfig):
+    epochs: int = 5
+
+# Use QuickTest as default variant
+@provide_config(config_cls=QuickTest)
+def train(cfg: TrainConfig):
+    print(f"Training for {cfg.epochs} epochs")
+
+if __name__ == "__main__":
+    train()  # Uses QuickTest by default (epochs=5)
+```
+
+**Important notes:**
+
+- The `config_cls` must be a subclass of the function's type annotation. In the example above, `QuickTest` must be a subclass of `TrainConfig`.
+- Discovery (variants, groups, CLI fields) is based on the **type annotation** (`TrainConfig`), not `config_cls`
+- The `--config` CLI flag can still override `config_cls` to select a different variant
+- CLI parameters are based on fields from the type annotation
+
+**Use cases:**
+
+- Set a default variant for production deployments
+- Create multiple entry points with different default configurations
+- Simplify testing by defaulting to test configurations
+
+```python
+# Different entry points with different configs
+@provide_config(config_cls=ProductionConfig)
+def train_prod(cfg: TrainConfig):
+    ...
+
+@provide_config(config_cls=QuickTest)
+def train_dev(cfg: TrainConfig):
+    ...
+```
+
+### 2. Variants - Named Configurations
 
 Create named configuration variants by **subclassing your main config**:
 
@@ -92,7 +144,7 @@ python train.py --config=Production  # Uses Production
 
 **How it works:** PydraConf discovers all direct subclasses of your main config class (the one used in your `train` function) and registers them as variants.
 
-### 2. Groups - Component Swapping
+### 3. Groups - Component Swapping
 
 Create swappable components by **defining base types for nested fields**:
 
@@ -181,7 +233,7 @@ Now you can swap components by type:
 python train.py model=ViTConfig optimizer=AdamConfig
 ```
 
-### 3. CLI Overrides - Runtime Tweaks
+### 4. CLI Overrides - Runtime Tweaks
 
 Override any field from the command line:
 
@@ -305,15 +357,17 @@ See the [`examples/`](examples/) directory:
 
 - [`examples/basic/`](examples/basic/) - Simple app configuration with variants
 - [`examples/ml_training/`](examples/ml_training/) - ML training with all three override types
+- [`examples/explicit_config_class/`](examples/explicit_config_class/) - Multiple entry points with explicit config classes
 
 ## API Reference
 
 ### `@provide_config`
 
-Decorator to make a function config-driven. The config class is automatically inferred from the function's first parameter type annotation.
+Decorator to make a function config-driven. The config class is automatically inferred from the function's first parameter type annotation, or can be explicitly specified.
 
 ```python
 @provide_config(
+    config_cls: Type[BaseModel] | None = None,  # Optional explicit config class
     config_dirs: str | list[str] | None = None   # Directory or directories to scan
 )
 def my_function(cfg: ConfigClass):
@@ -321,6 +375,12 @@ def my_function(cfg: ConfigClass):
 ```
 
 **Arguments:**
+
+- `config_cls`: Optional default config class. If provided, it must be a subclass of the function's first parameter type annotation. This is useful when you want to set a default config variant without requiring CLI arguments.
+
+  **Important**: Discovery (variants, groups, CLI fields) is ALWAYS based on the type annotation, NOT on `config_cls`. The `config_cls` parameter only sets which config to instantiate by default when no `--config` flag is provided.
+
+  **Selection priority**: CLI `--config` flag > `config_cls` parameter > type annotation
 
 - `config_dirs`: Directory or list of directories containing config files. If `None`, searches for:
   1. `.pydraconfrc` (JSON) in current/parent directories
