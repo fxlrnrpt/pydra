@@ -2,15 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from .model.variants import MediumModel
-
-
-class ModelConfig(BaseModel):
-    """Base model configuration."""
-
-    hidden_dim: int = Field(default=512, description="Hidden dimension size")
-    layers: int = Field(default=8, description="Number of layers")
-    dropout: float = Field(default=0.2, description="Dropout rate")
+from .model.variants import MediumModel, ModelConfig
 
 
 class TrainConfig(BaseModel):

@@ -6,6 +6,7 @@ in one file (configs/model/variants.py) and use any of them via CLI.
 """
 
 from configs.base import TrainConfig
+
 from pydraconf import provide_config
 
 
