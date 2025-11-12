@@ -81,9 +81,9 @@ def train(cfg: TrainConfig):
 
 ## How It Works
 
-### 1. Default config class
+### 1. Variants - Named Configurations
 
-You can specify a default config class by passing `config_cls` to the decorator. This sets the default variant to use when no `--config` CLI flag is provided:
+Create named configuration variants by **subclassing your main config**:
 
 ```python
 from pydraconf import PydraConfig
@@ -93,8 +93,27 @@ class TrainConfig(PydraConfig):
     batch_size: int = 32
 
 class QuickTest(TrainConfig):
-    epochs: int = 5
+    epochs: int = 5  # Override defaults
 
+class Production(TrainConfig):
+    epochs: int = 200
+    batch_size: int = 128
+```
+
+Use with `--config=ClassName`:
+
+```bash
+python train.py --config=QuickTest   # Uses QuickTest
+python train.py --config=Production  # Uses Production
+```
+
+**How it works:** PydraConf discovers all direct subclasses of your main config class (the one used in your `train` function) and registers them as variants.
+
+#### Setting a Default Variant
+
+You can specify a default variant by passing `config_cls` to the decorator. This sets the default to use when no `--config` CLI flag is provided:
+
+```python
 # Use QuickTest as default variant
 @provide_config(config_cls=QuickTest)
 def train(cfg: TrainConfig):
@@ -128,85 +147,9 @@ def train_dev(cfg: TrainConfig):
     ...
 ```
 
-### 2. Variants - Named Configurations
-
-Create named configuration variants by **subclassing your main config**:
-
-```python
-from pydraconf import PydraConfig
-
-class TrainConfig(PydraConfig):
-    epochs: int = 100
-    batch_size: int = 32
-
-class QuickTest(TrainConfig):
-    epochs: int = 5  # Override defaults
-
-class Production(TrainConfig):
-    epochs: int = 200
-    batch_size: int = 128
-```
-
-Use with `--config=ClassName`:
-
-```bash
-python train.py --config=QuickTest   # Uses QuickTest
-python train.py --config=Production  # Uses Production
-```
-
-**How it works:** PydraConf discovers all direct subclasses of your main config class (the one used in your `train` function) and registers them as variants.
-
-### 3. Groups - Component Swapping
+### 2. Groups - Component Swapping
 
 Create swappable components by **defining base types for nested fields**:
-
-```python
-# base.py
-from pydantic import BaseModel, Field
-from pydraconf import PydraConfig
-
-class ModelConfig(BaseModel):
-    """Base type for model configs with sane defaults."""
-    hidden_dim: int = 512
-    num_layers: int = 6
-
-class OptimizerConfig(BaseModel):
-    """Base type for optimizer configs with sane defaults."""
-    lr: float = 0.001
-
-class TrainConfig(PydraConfig):
-    epochs: int = 100
-    model: ModelConfig = Field(default_factory=ModelConfig)
-    optimizer: OptimizerConfig = Field(default_factory=OptimizerConfig)
-
-# model/vit.py
-class ViTConfig(ModelConfig):
-    hidden_dim: int = 768  # Override base
-    num_heads: int = 12
-    num_layers: int = 12  # Override base
-
-# model/resnet50.py
-class ResNet50Config(ModelConfig):
-    hidden_dim: int = 2048  # Override base
-    num_layers: int = 50  # Override base
-    pretrained: bool = True
-
-# optimizer/adam.py
-class AdamConfig(OptimizerConfig):
-    # Inherits lr=0.001 from base
-    beta1: float = 0.9
-    beta2: float = 0.999
-```
-
-Swap components at runtime using class names:
-
-```bash
-python train.py model=ViTConfig optimizer=AdamConfig
-```
-
-**How it works:** PydraConf identifies groups by examining the types of nested fields in your main config. Any class that inherits from a nested field's type becomes part of that field's group. The field name becomes the group name.
-
-**Complete Example:**
 
 ```python
 # configs/base.py
@@ -227,29 +170,34 @@ class TrainConfig(PydraConfig):
     model: ModelConfig = Field(default_factory=ModelConfig)
     optimizer: OptimizerConfig = Field(default_factory=OptimizerConfig)
 
-# Variants (subclass main config)
-class QuickTest(TrainConfig):
-    epochs: int = 5
-
 # configs/model/vit.py
 class ViTConfig(ModelConfig):  # Inherits from ModelConfig -> goes in "model" group
     hidden_dim: int = 768  # Override base
     num_heads: int = 12
     num_layers: int = 12  # Override base
 
+# configs/model/resnet50.py
+class ResNet50Config(ModelConfig):
+    hidden_dim: int = 2048
+    num_layers: int = 50
+    pretrained: bool = True
+
 # configs/optimizer/adam.py
 class AdamConfig(OptimizerConfig):  # Inherits from OptimizerConfig -> goes in "optimizer" group
     # Inherits lr=0.001 from base
     beta1: float = 0.9
+    beta2: float = 0.999
 ```
 
-Now you can swap components by type:
+Swap components at runtime using class names:
 
 ```bash
 python train.py model=ViTConfig optimizer=AdamConfig
 ```
 
-### 4. CLI Overrides - Runtime Tweaks
+**How it works:** PydraConf identifies groups by examining the types of nested fields in your main config. Any class that inherits from a nested field's type becomes part of that field's group. The field name becomes the group name.
+
+### 3. CLI Overrides - Runtime Tweaks
 
 Override any field from the command line:
 
@@ -259,7 +207,7 @@ python train.py --epochs=50 --model.hidden_dim=1024
 
 Use exact field names including underscores (e.g., `batch_size` → `--batch_size`).
 
-### Override Priority
+### 4. Override Priority
 
 When all three mechanisms are combined, priority is (from lowest to highest):
 
@@ -371,9 +319,8 @@ def train(cfg: TrainConfig):
 
 See the [`examples/`](examples/) directory:
 
-- [`examples/basic/`](examples/basic/) - Simple app configuration with variants
-- [`examples/ml_training/`](examples/ml_training/) - ML training with all three override types
-- [`examples/explicit_config_class/`](examples/explicit_config_class/) - Multiple entry points with explicit config classes
+- [`examples/ml_training/`](examples/ml_training/) - **Comprehensive example** demonstrating all features: variants, groups, CLI overrides, multiple entry points, multi-class files, and metadata tracking. Start here!
+- [`examples/multi_dir_config/`](examples/multi_dir_config/) - Multiple config directories with shadowing for team collaboration and monorepo setups
 
 ## API Reference
 
