@@ -11,7 +11,7 @@ from configs.base import TrainConfig
 from pydraconf import provide_config
 
 
-@provide_config(TrainConfig)  # config_dir read from .pydraconfrc
+@provide_config()  # config_dir read from .pydraconfrc
 def train(cfg: TrainConfig) -> None:
     """Run training with the given config.
 

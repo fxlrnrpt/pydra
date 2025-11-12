@@ -2,7 +2,7 @@
 
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Type, TypeVar
+from typing import Any, Callable, Type, TypeVar, get_type_hints
 
 from pydantic import BaseModel
 
@@ -11,7 +11,7 @@ from .config_loader import find_root_dir, load_config_dirs, substitute_variables
 from .registry import ConfigRegistry
 from .utils import set_nested_value
 
-T = TypeVar("T")
+T = TypeVar("T", bound=BaseModel)
 
 
 def _build_config(
@@ -90,15 +90,14 @@ def _build_config(
 
 
 def provide_config(
-    config_cls: Type[BaseModel],
     config_dirs: str | list[str] | None = None,
 ) -> Callable[[Callable[[T], Any]], Callable[[], Any]]:
     """Decorator to make a function config-driven.
 
     Discovers configs, parses CLI arguments, builds config, and calls function.
+    The config class is inferred from the function's first parameter type annotation.
 
     Args:
-        config_cls: Base config class
         config_dirs: Directory or list of directories to scan for configs.
                     If None, will search for config_dirs in:
                     1. .pydraconfrc (JSON) in current/parent directories
@@ -116,17 +115,17 @@ def provide_config(
 
     Example:
         # With explicit config_dirs
-        @provide_config(TrainConfig, config_dirs="configs")
+        @provide_config(config_dirs="configs")
         def train(cfg: TrainConfig):
             print(f"Training for {cfg.epochs} epochs")
 
         # With multiple directories
-        @provide_config(TrainConfig, config_dirs=["$CWD/configs", "configs"])
+        @provide_config(config_dirs=["$CWD/configs", "configs"])
         def train(cfg: TrainConfig):
             print(f"Training for {cfg.epochs} epochs")
 
         # Using config file (.pydraconfrc or pyproject.toml)
-        @provide_config(TrainConfig)
+        @provide_config()
         def train(cfg: TrainConfig):
             print(f"Training for {cfg.epochs} epochs")
 
@@ -135,6 +134,24 @@ def provide_config(
     """
 
     def decorator(func: Callable[[T], Any]) -> Callable[[], Any]:
+        # Infer config_cls from function's first parameter type hint
+        type_hints = get_type_hints(func)
+        if not type_hints:
+            msg = f"Function '{func.__name__}' must have type hints for its first parameter"
+            raise TypeError(msg)
+
+        # Get the first parameter's type
+        first_param_name = next(iter(func.__code__.co_varnames[:func.__code__.co_argcount]))
+        if first_param_name not in type_hints:
+            msg = f"First parameter '{first_param_name}' of function '{func.__name__}' must have a type hint"
+            raise TypeError(msg)
+
+        config_cls = type_hints[first_param_name]
+
+        # Validate it's a BaseModel subclass
+        if not (isinstance(config_cls, type) and issubclass(config_cls, BaseModel)):
+            msg = f"First parameter type of '{func.__name__}' must be a Pydantic BaseModel, got {config_cls}"
+            raise TypeError(msg)
         @wraps(func)
         def wrapper() -> Any:
             # Get the directory of the calling script

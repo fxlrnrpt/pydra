@@ -16,7 +16,7 @@ Example:
     class QuickTest(TrainConfig):
         epochs: int = 5
 
-    @provide_config(TrainConfig, config_dir="configs")
+    @provide_config(config_dirs="configs")
     def train(cfg: TrainConfig):
         print(f"Training for {cfg.epochs} epochs")
 

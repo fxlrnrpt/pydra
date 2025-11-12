@@ -38,13 +38,15 @@ class TrainConfig(BaseModel):
 class QuickTest(TrainConfig):
     epochs: int = 5
 
-@provide_config(TrainConfig)
+@provide_config()
 def train(cfg: TrainConfig):
     print(f"Training for {cfg.epochs} epochs")
 
 if __name__ == "__main__":
     train()
 ```
+
+The decorator automatically infers the config class from the function's type annotation.
 
 Run with different configurations:
 
@@ -173,8 +175,8 @@ my_project/
 ```
 
 ```python
-@provide_config(TrainConfig)  # Searches default locations
-def train(cfg):
+@provide_config()  # Searches default locations
+def train(cfg: TrainConfig):
     ...
 ```
 
@@ -205,8 +207,8 @@ config_dirs = ["$ROOT/shared_configs", "$CWD/configs"]
 Then use the decorator without arguments:
 
 ```python
-@provide_config(TrainConfig)  # Reads from config file
-def train(cfg):
+@provide_config()  # Reads from config file
+def train(cfg: TrainConfig):
     ...
 ```
 
@@ -226,13 +228,13 @@ Pass `config_dirs` directly to the decorator (single or multiple directories):
 
 ```python
 # Single directory (relative to script)
-@provide_config(TrainConfig, config_dirs="my_configs")
-def train(cfg):
+@provide_config(config_dirs="my_configs")
+def train(cfg: TrainConfig):
     ...
 
 # Multiple directories with priority
-@provide_config(TrainConfig, config_dirs=["$ROOT/shared_configs", "$CWD/configs"])
-def train(cfg):
+@provide_config(config_dirs=["$ROOT/shared_configs", "$CWD/configs"])
+def train(cfg: TrainConfig):
     ...
 ```
 
@@ -253,11 +255,10 @@ See the [`examples/`](examples/) directory:
 
 ### `@provide_config`
 
-Decorator to make a function config-driven.
+Decorator to make a function config-driven. The config class is automatically inferred from the function's first parameter type annotation.
 
 ```python
 @provide_config(
-    config_cls: Type[BaseModel],                 # Base config class
     config_dirs: str | list[str] | None = None   # Directory or directories to scan
 )
 def my_function(cfg: ConfigClass):
@@ -265,7 +266,7 @@ def my_function(cfg: ConfigClass):
 ```
 
 **Arguments:**
-- `config_cls`: Base configuration class (Pydantic BaseModel)
+
 - `config_dirs`: Directory or list of directories containing config files. If `None`, searches for:
   1. `.pydraconfrc` (JSON) in current/parent directories
   2. `[tool.pydraconf]` section in `pyproject.toml`

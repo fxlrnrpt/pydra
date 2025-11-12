@@ -10,7 +10,7 @@ from configs.base import TrainConfig
 from pydraconf import provide_config
 
 
-@provide_config(TrainConfig, config_dirs="configs")
+@provide_config(config_dirs="configs")
 def train(cfg: TrainConfig):
     """Train a model with the given configuration."""
     print("=" * 60)
