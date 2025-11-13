@@ -62,8 +62,7 @@ Create a simple config and use the decorator:
 ```python
 from pydraconf import PydraConfig, with_config
 
-# Use `PydraConfig` instead of Pydantic's `BaseModel` for your main configuration classes
-# to get automatic override tracking and metadata features.
+# Use `PydraConfig` to get automatic data validation (with Pydantic), override tracking and metadata.
 class TrainConfig(PydraConfig):
     epochs: int = 100
     batch_size: int = 32
